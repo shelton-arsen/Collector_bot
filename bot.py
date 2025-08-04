@@ -49,7 +49,7 @@ def handle_message(message):
             try:
 
                 pattern = re.compile(
-                    r"(\d{2}.\d{2}.\d{4}) - ([\w\s.,*-]+) - ([\w\s]+) - ([\w\s]+) - ([\w\s]+) - ([\w\s.,*-]+) - (\d+) - ([\w\s]+) - ([\w\s]+)")
+                    r"(\d{2}.\d{2}.\d{4}) - ([\w\s.,*-]+) - ([\w\s]+) - ([\w\s]+) - ([\w\s]+) - ([\w\s.,*-]+) - (\d+) - ([\w\s.,*-]]+) - ([\w\s]+)")
 
                 match = pattern.match(text)
                 if match:
