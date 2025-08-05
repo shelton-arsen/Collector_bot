@@ -45,17 +45,41 @@ def find_empty_row(worksheet, date_column=1):  # date_column - номер сто
 @bot.message_handler(func=lambda message: str(message.chat.id) in CHAT_ID)
 def handle_message(message):
         text = message.text
-        if 'оплата' in text.lower():
+        if text.startswith('@paycollect_bot'):
             try:
+                text = text.lstrip('@paycollect_bot').strip()
+                text = [item.strip() for item in text.split('-')]
+                errors = []  # Список для хранения сообщений об ошибках
 
-                pattern = re.compile(
-                    r"(\d{2}.\d{2}.\d{4}) - ([\w\s.,*-]+) - ([\w\s]+) - ([\w\s]+) - ([\w\s]+) - ([\w\s.,*-]+) - (\d+) - ([\w\s.,*-]]+) - ([\w\s]+)")
+                # Проверяем каждую часть текста с помощью регулярных выражений
+                if not re.match(r"\d{2}\.\d{2}\.\d{4}", text[0]):  # Проверяем дату
+                    errors.append('Ошибка в дате')
+                if not re.match(r"[\w\s.,*-]+", text[1]):  # Проверяем название объекта
+                    errors.append('Ошибка в названии объекта')
+                if not re.match(r"[\w\s]+", text[2]):  # Проверяем регион
+                    errors.append('Ошибка в регионе')
+                if not re.match(r"[\w\s]+", text[3]):  # Проверяем этап/вид расходов
+                    errors.append('Ошибка в категории этапе/виде расходов')
+                if not re.match(r"[\w\s]+", text[4]):  # Проверяем описание
+                    errors.append('Ошибка в описании')
+                if not re.match(r"[\w\s.,*-]+", text[5]):  # Проверяем детализацию расходов
+                    errors.append('Ошибка в детализации расходов')
+                if not re.match(r"^\d+$", text[6]): # Проверяем сумму
+                    errors.append('Ошибка в сумме: некорректный формат (только цифры)')
+                if not re.match(r"[\w\s.,*-]+", text[7]):  # Проверяем поставщика
+                    errors.append('Ошибка в поставщике')
+                if not re.match(r"[\w\s]+", text[8]):  # Проверяем компанию
+                    errors.append('Ошибка в компании')
 
-                match = pattern.match(text)
-                if match:
-                    date, project, direction, stage, category, description, amount, supplier, company = match.groups()
+                # Выводим ошибки, если они есть
+                if errors:
+                    for error in errors:
+                        bot.reply_to(message, f"{error}")
+                else:
+                    date, project, direction, stage, category, description, amount, supplier, company = tuple(text)
                     row = [
-                        date, project.strip(), '', direction.strip(), stage, category.strip(), description.strip(), amount,
+                        date, project.strip(), '', direction.strip().title(), stage, category.strip(),
+                        description.strip(), amount,
                         supplier.strip(), f"https://t.me/c/2890383045/{message.message_id}", company.strip()]
                     empty_row = find_empty_row(worksheet)
 
@@ -68,9 +92,8 @@ def handle_message(message):
 
                     bot.reply_to(message, "Данные успешно добавлены в Google Sheets!")
 
-                else:
-                    bot.reply_to(message, "Сообщение не соответствует формату")
-
+            except IndexError as e:
+                bot.reply_to(message, f"Отсутствуют обязательные поля для заполнения")
             except Exception as e:
                 bot.reply_to(message, f"Произошла ошибка при обработке сообщения: {e}")
                 print(f"Ошибка: {e}")
