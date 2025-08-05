@@ -87,7 +87,7 @@ def handle_message(message):
                     row = [
                         date, project.strip(), '', direction.strip().title(), stage, category.strip(),
                         description.strip(), amount,
-                        supplier.strip(), f"https://t.me/c/2890383045/{message.message_id}", company.strip()]
+                        supplier.strip(), f"https://t.me/c/{str(message.chat.id).lstrip('-100')}/{message.message_id}", company.strip()]
                     empty_row = find_empty_row(worksheet)
 
                     if empty_row is not None and empty_row <= worksheet.row_count:
