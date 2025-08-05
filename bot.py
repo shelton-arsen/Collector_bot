@@ -30,7 +30,14 @@ bot = telebot.TeleBot(TELEGRAM_TOKEN)
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     print("Команда /start получена!")  # Добавлено для отладки
-    bot.reply_to(message, "Привет! Я бот для формирования реестра оплат. Отправляйте сообщения в формате дата - ")
+    bot.reply_to(message, "Привет! Я бот для формирования реестра оплат. Отправляйте сообщения и я буду записывать их в реестр ")
+
+# --- Обработчик команды /start ---
+@bot.message_handler(commands=['info'])
+def send_info(message):
+    print("Команда /info получена!")  # Добавлено для отладки
+    bot.reply_to(message, """Пример для описания счетов:\
+    @paycollect_bot 01.01.2025 - Объект2 - Стройка МСК - Этап 3 - Оплата за окна - Оплата за окна алюминий - 30500 - ООО Петрович - ООО Дом Газобетон""")
 
 def find_empty_row(worksheet, date_column=1):  # date_column - номер столбца с датой (начинается с 1)
     """Находит первую строку, где столбец с датой пуст."""
