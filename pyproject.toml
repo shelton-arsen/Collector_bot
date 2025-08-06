@@ -7,6 +7,9 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.13"
+telebot = "^0.0.5"
+gspread = "^6.2.1"
+dotenv = "^0.9.9"
 
 
 [tool.poetry.group.lint.dependencies]
