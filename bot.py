@@ -49,63 +49,82 @@ def find_empty_row(worksheet, date_column=1):  # date_column - номер сто
         return len(data) + 1  # Если все ячейки заполнены, возвращает номер следующей строки
 
 # --- Функция для обработки сообщений ---
-@bot.message_handler(func=lambda message: str(message.chat.id) in CHAT_ID)
+@bot.message_handler(func=lambda message: str(message.chat.id) in CHAT_ID, content_types=['text', 'document', 'photo', 'video'])
 def handle_message(message):
-        text = message.text
-        if text.startswith('@paycollect_bot'):
-            try:
-                text = text.lstrip('@paycollect_bot').strip()
-                text = [item.strip() for item in text.split('-')]
-                errors = []  # Список для хранения сообщений об ошибках
+    try:
+        text = None  # Изначально текста нет
 
-                # Проверяем каждую часть текста с помощью регулярных выражений
-                if not re.match(r"\d{2}\.\d{2}\.\d{4}", text[0]):  # Проверяем дату
-                    errors.append('Ошибка в дате')
-                if not re.match(r"[\w\s.,*-]+", text[1]):  # Проверяем название объекта
-                    errors.append('Ошибка в названии объекта')
-                if not re.match(r"[\w\s]+", text[2]):  # Проверяем регион
-                    errors.append('Ошибка в регионе')
-                if not re.match(r"[\w\s]+", text[3]):  # Проверяем этап/вид расходов
-                    errors.append('Ошибка в категории этапе/виде расходов')
-                if not re.match(r"[\w\s]+", text[4]):  # Проверяем описание
-                    errors.append('Ошибка в описании')
-                if not re.match(r"[\w\s.,*-]+", text[5]):  # Проверяем детализацию расходов
-                    errors.append('Ошибка в детализации расходов')
-                if not re.match(r"^\d+$", text[6]): # Проверяем сумму
-                    errors.append('Ошибка в сумме: некорректный формат (только цифры)')
-                if not re.match(r"[\w\s.,*-]+", text[7]):  # Проверяем поставщика
-                    errors.append('Ошибка в поставщике')
-                if not re.match(r"[\w\s]+", text[8]):  # Проверяем компанию
-                    errors.append('Ошибка в компании')
+        # Обработка текста в обычном текстовом сообщении
+        if message.content_type == 'text':
+            text = message.text
+
+        # Обработка текста из описания (caption) к документу
+        elif message.content_type == 'document' and message.caption:
+            text = message.caption
+
+        # Обработка текста из описания (caption) к фотографии
+        elif message.content_type == 'photo' and message.caption:
+            text = message.caption
+
+        # Обработка текста из описания (caption) к видео
+        elif message.content_type == 'video' and message.caption:
+            text = message.caption
+
+        if text.startswith('@paycollect_bot'):  # Проверяем, что текст есть и содержит команду
+            text = text.lstrip('@paycollect_bot').strip()
+            text = [item.strip() for item in text.split('-')]
+            errors = []
+
+            if not re.match(r"\d{2}\.\d{2}\.\d{4}", text[0]):  # Проверяем дату
+                errors.append('Ошибка в дате')
+            if not re.match(r"[\w\s.,*-]+", text[1]):  # Проверяем название объекта
+                errors.append('Ошибка в названии объекта')
+            if not re.match(r"[\w\s]+", text[2]):  # Проверяем регион
+                errors.append('Ошибка в регионе')
+            if not re.match(r"[\w\s]+", text[3]):  # Проверяем этап/вид расходов
+                errors.append('Ошибка в категории этапе/виде расходов')
+            if not re.match(r"[\w\s]+", text[4]):  # Проверяем описание
+                errors.append('Ошибка в описании')
+            if not re.match(r"[\w\s.,*-]+", text[5]):  # Проверяем детализацию расходов
+                errors.append('Ошибка в детализации расходов')
+            if not re.match(r"^\d+$", text[6]):  # Проверяем сумму
+                errors.append('Ошибка в сумме: некорректный формат (только цифры)')
+            if not re.match(r"[\w\s.,*-]+", text[7]):  # Проверяем поставщика
+                errors.append('Ошибка в поставщике')
+            if not re.match(r"[\w\s]+", text[8]):  # Проверяем компанию
+                errors.append('Ошибка в компании')
 
                 # Выводим ошибки, если они есть
-                if errors:
-                    for error in errors:
-                        bot.reply_to(message, f"{error}")
+            if errors:
+                for error in errors:
+                    bot.reply_to(message, f"{error}")
+            else:
+                date, project, direction, stage, category, description, amount, supplier, company = tuple(text)
+                row = [
+                    date, project.strip(), '', direction.strip().title(), stage, category.strip(),
+                    description.strip(), amount,
+                    supplier.strip(), f"https://t.me/c/{str(message.chat.id).lstrip('-100')}/{message.message_id}", company.strip()]
+                empty_row = find_empty_row(worksheet)
+
+                if empty_row is not None and empty_row <= worksheet.row_count:
+
+                    for i, value in enumerate(row):
+                        worksheet.update_cell(empty_row, i + 1, value)  # i + 1 = номер столбца
                 else:
-                    date, project, direction, stage, category, description, amount, supplier, company = tuple(text)
-                    row = [
-                        date, project.strip(), '', direction.strip().title(), stage, category.strip(),
-                        description.strip(), amount,
-                        supplier.strip(), f"https://t.me/c/{str(message.chat.id).lstrip('-100')}/{message.message_id}", company.strip()]
-                    empty_row = find_empty_row(worksheet)
+                    bot.reply_to(message, "Не найдена строка без даты. Данные не были записаны.")
 
-                    if empty_row is not None and empty_row <= worksheet.row_count:
+                bot.reply_to(message, "Данные успешно добавлены в Google Sheets!")
 
-                        for i, value in enumerate(row):
-                            worksheet.update_cell(empty_row, i + 1, value)  # i + 1 = номер столбца
-                    else:
-                        bot.reply_to(message, "Не найдена строка без даты. Данные не были записаны.")
+        elif message.content_type == 'document':
+            bot.reply_to(message, "Извините, я не умею обрабатывать документы, но я прочитал описание!")
 
-                    bot.reply_to(message, "Данные успешно добавлены в Google Sheets!")
-
-            except IndexError as e:
-                bot.reply_to(message, f"Отсутствуют обязательные поля для заполнения")
-            except Exception as e:
-                bot.reply_to(message, f"Произошла ошибка при обработке сообщения: {e}")
-                print(f"Ошибка: {e}")
-                traceback.print_exc()  # Выводим traceback
-                print(f"Текст сообщения: {text}")
+    except IndexError as e:
+        bot.reply_to(message, f"Отсутствуют обязательные поля для заполнения")
+    except Exception as e:
+        bot.reply_to(message, f"Произошла ошибка при обработке сообщения: {e}")
+        print(f"Ошибка: {e}")
+        traceback.print_exc()  # Выводим traceback
+        print(f"Текст сообщения: {text}")
 
 # --- Запуск бота ---
 if __name__ == '__main__':
