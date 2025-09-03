@@ -257,7 +257,7 @@ def handle_message(message):
             logger.error(f"🔍 Traceback: {traceback.format_exc()}")
             bot.reply_to(message, f"Ошибка: {error_msg}")
             return
-            
+
     except IndexError as e:
         error_msg = f"Недостаточно полей в сообщении: {str(e)}"
         logger.error(f"❌ {error_msg}")
@@ -282,7 +282,6 @@ if __name__ == '__main__':
     logger.info(f"   📄 Snab лист: {SHEET_SNAB_NAME}")
     logger.info(f"   👥 Admin чаты: {len(CHAT_ADMIN_ID.split(',')) if CHAT_ADMIN_ID else 0}")
     logger.info(f"   👥 Snab чаты: {len(CHAT_SNAB_ID.split(',')) if CHAT_SNAB_ID else 0}")
-    
     try:
         logger.info("🔄 Начинаем polling...")
         print("Бот запущен и готов к работе! Логи записываются в bot.log")
