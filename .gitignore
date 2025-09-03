@@ -7,7 +7,7 @@ __pycache__/
 *.so
 
 YOUR_CREDENTIALS_FILE.json
-
+your_credentials_file.json
 # Distribution / packaging
 .Python
 build/
