@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PayCollect Bot - Мониторинг</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+        
+        .header h1 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .header p {
+            text-align: center;
+            opacity: 0.9;
+        }
+        
+        .main {
+            padding: 2rem 0;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .card h3 {
+            margin-bottom: 1rem;
+            color: #4a5568;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 0.5rem;
+        }
+        
+        .status-card {
+            text-align: center;
+        }
+        
+        .status-indicator {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            margin: 0 auto 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .status-running {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+        }
+        
+        .status-stopped {
+            background: linear-gradient(135deg, #f56565, #e53e3e);
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin: 0.25rem;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #f56565, #e53e3e);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #ed8936, #dd6b20);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .stat-item {
+            background: #f7fafc;
+            padding: 1rem;
+            border-radius: 5px;
+            text-align: center;
+            border-left: 4px solid #667eea;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #718096;
+            margin-top: 0.25rem;
+        }
+        
+        .log-container {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            height: 300px;
+            overflow-y: auto;
+        }
+        
+        .log-entry {
+            margin-bottom: 0.5rem;
+        }
+        
+        .log-timestamp {
+            color: #a0aec0;
+        }
+        
+        .log-level-INFO {
+            color: #68d391;
+        }
+        
+        .log-level-ERROR {
+            color: #f56565;
+        }
+        
+        .log-level-WARNING {
+            color: #ed8936;
+        }
+        
+        .check-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-radius: 5px;
+            background: #f7fafc;
+        }
+        
+        .check-status {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .check-success {
+            background: #48bb78;
+        }
+        
+        .check-error {
+            background: #f56565;
+        }
+        
+        .check-warning {
+            background: #ed8936;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #e2e8f0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-cpu {
+            background: linear-gradient(90deg, #48bb78, #ed8936, #f56565);
+        }
+        
+        .progress-memory {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+        
+        .progress-disk {
+            background: linear-gradient(90deg, #38b2ac, #319795);
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <h1>🤖 PayCollect Bot</h1>
+            <p>Система мониторинга и управления телеграм-ботом</p>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <div class="grid">
+                <!-- Статус бота -->
+                <div class="card status-card">
+                    <h3>📊 Статус бота</h3>
+                    <div id="status-indicator" class="status-indicator status-stopped">
+                        ❌
+                    </div>
+                    <div id="status-text">Остановлен</div>
+                    <div style="margin-top: 1rem;">
+                        <button class="btn btn-success" onclick="startBot()">▶️ Запустить</button>
+                        <button class="btn btn-danger" onclick="stopBot()">⏹️ Остановить</button>
+                        <button class="btn btn-warning" onclick="restartBot()">🔄 Перезапуск</button>
+                    </div>
+                </div>
+
+                <!-- Системная информация -->
+                <div class="card">
+                    <h3>💻 Система</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value" id="cpu-usage">0%</div>
+                            <div class="stat-label">CPU</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill progress-cpu" id="cpu-progress"></div>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="memory-usage">0%</div>
+                            <div class="stat-label">Память</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill progress-memory" id="memory-progress"></div>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="disk-usage">0%</div>
+                            <div class="stat-label">Диск</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill progress-disk" id="disk-progress"></div>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="uptime">0с</div>
+                            <div class="stat-label">Время работы</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Статистика бота -->
+                <div class="card">
+                    <h3>📈 Статистика</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value" id="messages-processed">0</div>
+                            <div class="stat-label">Обработано сообщений</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="errors-count">0</div>
+                            <div class="stat-label">Ошибки</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Проверка конфигурации -->
+                <div class="card">
+                    <h3>⚙️ Конфигурация</h3>
+                    <div id="config-checks">
+                        <p>Загрузка...</p>
+                    </div>
+                    <button class="btn" onclick="checkConfig()">🔍 Проверить</button>
+                    <button class="btn btn-success" onclick="sendTestMessage()">🧪 Тест</button>
+                </div>
+            </div>
+
+            <!-- Логи -->
+            <div class="card">
+                <h3>📋 Логи</h3>
+                <div id="logs" class="log-container">
+                    <div class="log-entry">Загрузка логов...</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let updateInterval;
+
+        // Функции управления ботом
+        async function startBot() {
+            try {
+                const response = await fetch('/api/bot/start', { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    addLogEntry('SUCCESS', 'Бот запущен');
+                } else {
+                    addLogEntry('ERROR', 'Ошибка запуска бота');
+                }
+                updateStatus();
+            } catch (error) {
+                addLogEntry('ERROR', 'Ошибка: ' + error.message);
+            }
+        }
+
+        async function stopBot() {
+            try {
+                const response = await fetch('/api/bot/stop', { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    addLogEntry('SUCCESS', 'Бот остановлен');
+                } else {
+                    addLogEntry('ERROR', 'Ошибка остановки бота');
+                }
+                updateStatus();
+            } catch (error) {
+                addLogEntry('ERROR', 'Ошибка: ' + error.message);
+            }
+        }
+
+        async function restartBot() {
+            try {
+                const response = await fetch('/api/bot/restart', { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    addLogEntry('SUCCESS', 'Бот перезапущен');
+                } else {
+                    addLogEntry('ERROR', 'Ошибка перезапуска бота');
+                }
+                updateStatus();
+            } catch (error) {
+                addLogEntry('ERROR', 'Ошибка: ' + error.message);
+            }
+        }
+
+        async function checkConfig() {
+            try {
+                const response = await fetch('/api/config/check');
+                const checks = await response.json();
+                displayConfigChecks(checks);
+            } catch (error) {
+                addLogEntry('ERROR', 'Ошибка проверки конфигурации: ' + error.message);
+            }
+        }
+
+        async function sendTestMessage() {
+            try {
+                const response = await fetch('/api/test/message', { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    addLogEntry('SUCCESS', data.message);
+                } else {
+                    addLogEntry('ERROR', 'Ошибка теста: ' + data.error);
+                }
+            } catch (error) {
+                addLogEntry('ERROR', 'Ошибка отправки тестового сообщения: ' + error.message);
+            }
+        }
+
+        // Обновление статуса
+        async function updateStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                // Обновляем статус бота
+                const indicator = document.getElementById('status-indicator');
+                const statusText = document.getElementById('status-text');
+                
+                if (data.bot.running) {
+                    indicator.className = 'status-indicator status-running';
+                    indicator.textContent = '✅';
+                    statusText.textContent = `Работает (PID: ${data.bot.pid})`;
+                } else {
+                    indicator.className = 'status-indicator status-stopped';
+                    indicator.textContent = '❌';
+                    statusText.textContent = 'Остановлен';
+                }
+                
+                // Обновляем системную информацию
+                document.getElementById('cpu-usage').textContent = data.system.cpu_percent.toFixed(1) + '%';
+                document.getElementById('cpu-progress').style.width = data.system.cpu_percent + '%';
+                
+                document.getElementById('memory-usage').textContent = data.system.memory_percent.toFixed(1) + '%';
+                document.getElementById('memory-progress').style.width = data.system.memory_percent + '%';
+                
+                document.getElementById('disk-usage').textContent = data.system.disk_percent.toFixed(1) + '%';
+                document.getElementById('disk-progress').style.width = data.system.disk_percent + '%';
+                
+                // Время работы
+                const uptime = data.bot.uptime;
+                const hours = Math.floor(uptime / 3600);
+                const minutes = Math.floor((uptime % 3600) / 60);
+                const seconds = uptime % 60;
+                document.getElementById('uptime').textContent = 
+                    hours > 0 ? `${hours}ч ${minutes}м ${seconds}с` : 
+                    minutes > 0 ? `${minutes}м ${seconds}с` : `${seconds}с`;
+                
+                // Статистика
+                document.getElementById('messages-processed').textContent = data.stats.messages_processed;
+                document.getElementById('errors-count').textContent = data.stats.errors;
+                
+            } catch (error) {
+                console.error('Ошибка обновления статуса:', error);
+            }
+        }
+
+        // Обновление логов
+        async function updateLogs() {
+            try {
+                const response = await fetch('/api/logs?limit=50');
+                const logs = await response.json();
+                
+                const logsContainer = document.getElementById('logs');
+                logsContainer.innerHTML = '';
+                
+                logs.forEach(log => {
+                    const logEntry = document.createElement('div');
+                    logEntry.className = 'log-entry';
+                    logEntry.innerHTML = `
+                        <span class="log-timestamp">[${log.timestamp}]</span>
+                        <span class="log-level-${log.level}">${log.level}:</span>
+                        ${log.message}
+                    `;
+                    logsContainer.appendChild(logEntry);
+                });
+                
+                logsContainer.scrollTop = logsContainer.scrollHeight;
+                
+            } catch (error) {
+                console.error('Ошибка обновления логов:', error);
+            }
+        }
+
+        // Отображение результатов проверки конфигурации
+        function displayConfigChecks(checks) {
+            const container = document.getElementById('config-checks');
+            container.innerHTML = '';
+            
+            checks.forEach(check => {
+                const checkElement = document.createElement('div');
+                checkElement.className = 'check-item';
+                
+                const statusIcon = check.status === 'success' ? '✅' : 
+                                 check.status === 'error' ? '❌' : '⚠️';
+                const statusClass = check.status === 'success' ? 'check-success' :
+                                  check.status === 'error' ? 'check-error' : 'check-warning';
+                
+                checkElement.innerHTML = `
+                    <div class="check-status ${statusClass}">${statusIcon}</div>
+                    <div>
+                        <strong>${check.name}</strong><br>
+                        <small>${check.message}</small>
+                    </div>
+                `;
+                
+                container.appendChild(checkElement);
+            });
+        }
+
+        // Добавление записи в лог
+        function addLogEntry(level, message) {
+            const timestamp = new Date().toLocaleString();
+            const logsContainer = document.getElementById('logs');
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `
+                <span class="log-timestamp">[${timestamp}]</span>
+                <span class="log-level-${level}">${level}:</span>
+                ${message}
+            `;
+            
+            logsContainer.appendChild(logEntry);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStatus();
+            updateLogs();
+            checkConfig();
+            
+            // Автообновление каждые 5 секунд
+            updateInterval = setInterval(() => {
+                updateStatus();
+                updateLogs();
+            }, 5000);
+        });
+    </script>
+</body>
+</html>
