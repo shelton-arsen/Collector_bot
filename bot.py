@@ -133,7 +133,7 @@ def handle_message(message):
         
             # Разбиваем на части
             try:
-                parts = [item.strip() for item in parsed_text.split('-')]
+                parts = [item.strip() for item in parsed_text.split(' - ')]
                 logger.info(f"📊 Разбито на {len(parts)} частей: {parts}")
             
                 if len(parts) != 10:
