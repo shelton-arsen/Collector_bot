@@ -4,7 +4,6 @@ import traceback
 import re
 import os
 import logging
-from datetime import datetime
 from dotenv import load_dotenv
 
 # Настройка логирования
@@ -45,7 +44,7 @@ bot = telebot.TeleBot(TELEGRAM_TOKEN)
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     logger.info(f"🚀 Команда /start от пользователя {message.from_user.username} ({message.from_user.id}) в чате {message.chat.id}")
-    welcome_msg = "👋 Привет! Я бот для формирования реестра оплат.\n\n📋 Отправляйте сообщения в формате:\n@paycollect_bot [данные через дефис]\n\n💡 Используйте /info для получения примера"
+    welcome_msg = "👋 Привет! Я бот для формирования реестра оплат.\n\n📋 Отправляйте сообщения в формате:\n@paycollect_bot [данные через пробел дефис пробел]\n\n💡 Используйте /info для получения шаблона"
     bot.reply_to(message, welcome_msg)
     logger.info("✅ Отправлено приветственное сообщение")
 
@@ -55,11 +54,11 @@ def send_info(message):
     logger.info(f"ℹ️ Команда /info от пользователя {message.from_user.username} ({message.from_user.id}) в чате {message.chat.id}")
     info_msg = """📝 Пример для описания счетов:
 
-@paycollect_bot 01.01.2025 - Объект2 - Стройка МСК - Этап 3 - Оплата за окна - Оплата за окна алюминий - 30500 - ООО Петрович - ООО Дом Газобетон
+@paycollect_bot 01.01.2025 - Счет 1 от 01.01.2025 - Объект2 - Стройка МСК - Этап 3 - Оплата за окна - Оплата за окна алюминий - 30500,00 - ООО Петрович - ООО Дом Газобетон
 
-🔹 Формат: дата - объект - регион - этап - категория - описание - сумма - поставщик - компания
-🔹 Разделитель: дефис (-)
-🔹 Сумма: только цифры без пробелов и символов"""
+🔹 Формат: дата - реквизиты счета - объект - регион - этап - категория - описание - сумма - поставщик - компания
+🔹 Разделитель: пробел дефис пробел (' - ')
+🔹 Сумма: только цифры без пробелов и копейки разделенные запятой"""
     bot.reply_to(message, info_msg)
     logger.info("✅ Отправлена информация о формате")
 
@@ -78,16 +77,13 @@ def is_authorized_chat(message):
     chat_id_str = str(message.chat.id)
     admin_chats = [id.strip() for id in CHAT_ADMIN_ID.split(',') if id.strip()]
     snab_chats = [id.strip() for id in CHAT_SNAB_ID.split(',') if id.strip()]
-    
-    # Разрешаем личные чаты для тестирования (положительные ID)
-    is_private_chat = message.chat.type == 'private'
+
     is_in_allowed_groups = chat_id_str in admin_chats or chat_id_str in snab_chats
     
     logger.info(f"🔍 Проверка авторизации чата {chat_id_str} (тип: {message.chat.type})")
-    logger.info(f"   📋 Личный чат: {is_private_chat}")
     logger.info(f"   📋 В разрешенных группах: {is_in_allowed_groups}")
     
-    return is_private_chat or is_in_allowed_groups
+    return is_in_allowed_groups
 
 def get_worksheet_for_chat(chat_id):
     """Определяет лист для записи в зависимости от чата"""
@@ -95,10 +91,7 @@ def get_worksheet_for_chat(chat_id):
     admin_chats = [id.strip() for id in CHAT_ADMIN_ID.split(',') if id.strip()]
     
     # Личные чаты направляем в админ лист для тестирования
-    if chat_id > 0:  # Личный чат (положительный ID)
-        logger.info(f"📝 Личный чат {chat_id_str} -> Админ лист")
-        return sh.worksheet(SHEET_ADMIN_NAME)
-    elif chat_id_str in admin_chats:
+    if chat_id_str in admin_chats:
         logger.info(f"📝 Админ группа {chat_id_str} -> Админ лист")
         return sh.worksheet(SHEET_ADMIN_NAME)
     else:
@@ -131,132 +124,129 @@ def handle_message(message):
             logger.info(f"🎥 Описание видео: {text}")
         
         # Проверяем, что текст содержит команду бота
-        if not text or not text.startswith('@paycollect_bot'):
-            logger.info("⏭️ Сообщение не содержит команду @paycollect_bot, пропускаем")
-            if message.content_type == 'document':
-                bot.reply_to(message, "Извините, я не умею обрабатывать документы, но я прочитал описание!")
-            return
+        if text and text.startswith('@paycollect_bot'):
+            logger.info("🤖 Обрабатываем команду @paycollect_bot")
         
-        logger.info("🤖 Обрабатываем команду @paycollect_bot")
+            # Парсим сообщение
+            parsed_text = text.lstrip('@paycollect_bot').strip()
+            logger.info(f"🔄 Обработанный текст: {parsed_text}")
         
-        # Парсим сообщение
-        parsed_text = text.lstrip('@paycollect_bot').strip()
-        logger.info(f"🔄 Обработанный текст: {parsed_text}")
-        
-        # Разбиваем на части
-        try:
-            parts = [item.strip() for item in parsed_text.split('-')]
-            logger.info(f"📊 Разбито на {len(parts)} частей: {parts}")
+            # Разбиваем на части
+            try:
+                parts = [item.strip() for item in parsed_text.split('-')]
+                logger.info(f"📊 Разбито на {len(parts)} частей: {parts}")
             
-            if len(parts) != 9:
-                error_msg = f"❌ Неверное количество полей: ожидается 9, получено {len(parts)}"
-                logger.error(error_msg)
-                bot.reply_to(message, f"Ошибка: {error_msg}. Проверьте формат сообщения.")
-                return
+                if len(parts) != 10:
+                    error_msg = f"❌ Неверное количество полей: ожидается 10, получено {len(parts)}"
+                    logger.error(error_msg)
+                    bot.reply_to(message, f"Ошибка: {error_msg}. Проверьте формат сообщения и разделители.")
+                    return
                 
-        except Exception as e:
-            error_msg = f"❌ Ошибка парсинга сообщения: {str(e)}"
-            logger.error(error_msg)
-            bot.reply_to(message, f"Ошибка парсинга: {error_msg}")
-            return
-        
-        # Валидация полей
-        logger.info("✅ Начинаем валидацию полей...")
-        errors = []
-        
-        # Проверяем каждое поле
-        validations = [
-            (r"\d{2}\.\d{2}\.\d{4}", parts[0], "Дата (ДД.ММ.ГГГГ)"),
-            (r"[\w\s.,*-]+", parts[1], "Название объекта"),
-            (r"[\w\s.,*-]+", parts[2], "Регион/направление"),
-            (r"[\w\s.,*-]+", parts[3], "Этап/вид расходов"),
-            (r"[\w\s.,*-]+", parts[4], "Категория"),
-            (r"[\w\s.,*-]+", parts[5], "Детализация расходов"),
-            (r"^\d+$", parts[6], "Сумма (только цифры)"),
-            (r"[\w\s.,*-]+", parts[7], "Поставщик"),
-            (r"[\w\s.,*-]+", parts[8], "Компания")
-        ]
-        
-        for pattern, value, field_name in validations:
-            if not re.match(pattern, value):
-                error_msg = f"Ошибка в поле '{field_name}': '{value}'"
-                errors.append(error_msg)
-                logger.warning(f"⚠️ {error_msg}")
-        
-        # Если есть ошибки валидации
-        if errors:
-            logger.error(f"❌ Найдено {len(errors)} ошибок валидации")
-            for error in errors:
-                bot.reply_to(message, error)
-            return
-        
-        logger.info("✅ Валидация успешно пройдена")
-        
-        # Подготавливаем данные для записи
-        try:
-            date, project, direction, stage, category, description, amount, supplier, company = tuple(parts)
-            
-            # Определяем лист для записи
-            logger.info(f"📋 Определяем лист для чата {message.chat.id}")
-            worksheet = get_worksheet_for_chat(message.chat.id)
-            worksheet_name = worksheet.title
-            logger.info(f"📄 Выбран лист: '{worksheet_name}'")
-            
-            # Формируем строку для записи
-            telegram_link = f"https://t.me/c/{str(message.chat.id).lstrip('-100')}/{message.message_id}"
-            row = [
-                date, 
-                project.strip(), 
-                '', 
-                direction.strip().title(), 
-                stage.strip(), 
-                category.strip(),
-                description.strip(), 
-                amount,
-                supplier.strip(), 
-                telegram_link, 
-                company.strip()
-            ]
-            
-            logger.info(f"📝 Подготовлена строка для записи: {row}")
-            
-            # Находим пустую строку
-            empty_row = find_empty_row(worksheet)
-            logger.info(f"🔍 Найдена пустая строка: {empty_row}")
-            
-            if empty_row is None or empty_row > worksheet.row_count:
-                error_msg = "Не найдена подходящая строка для записи данных"
-                logger.error(f"❌ {error_msg}")
-                bot.reply_to(message, f"Ошибка: {error_msg}")
+            except Exception as e:
+                error_msg = f"❌ Ошибка парсинга сообщения: {str(e)}"
+                logger.error(error_msg)
+                bot.reply_to(message, f"Ошибка парсинга: {error_msg}")
                 return
+        
+            # Валидация полей
+            logger.info("✅ Начинаем валидацию полей...")
+            errors = []
+        
+            # Проверяем каждое поле
+            validations = [
+                (r"\d{2}\.\d{2}\.\d{4}", parts[0], "Дата (ДД.ММ.ГГГГ)"),
+                (r"[\w\s.,*-]+", parts[1]), "Реквизиты счета",
+                (r"[\w\s.,*-]+", parts[2], "Название чата"),
+                (r"[\w\s.,*-]+", parts[3], "Регион/направление"),
+                (r"[\w\s.,*-]+", parts[4], "Этап/вид расходов"),
+                (r"[\w\s.,*-]+", parts[5], "Категория"),
+                (r"[\w\s0-9.,*-]+", parts[6], "Детализация расходов"),
+                (r"^-?\d+,\d{2}$", "Сумма (ожидается только цифры и копейки разделенные запятой)"),
+                (r"[\w\s.,*-]+", parts[8], "Поставщик"),
+                (r"[\w\s.,*-]+", parts[9], "Компания")
+            ]
+        
+            for pattern, value, field_name in validations:
+                if not re.match(pattern, value):
+                    error_msg = f"Ошибка в поле '{field_name}': '{value}'"
+                    errors.append(error_msg)
+                    logger.warning(f"⚠️ {error_msg}")
+        
+            # Если есть ошибки валидации
+            if errors:
+                logger.error(f"❌ Найдено {len(errors)} ошибок валидации")
+                for error in errors:
+                    bot.reply_to(message, error)
+                return
+        
+            logger.info("✅ Валидация успешно пройдена")
+        
+            # Подготавливаем данные для записи
+            try:
+                date, account, project, direction, stage, category, description, amount, supplier, company = tuple(parts)
             
-            # Записываем данные
-            logger.info(f"💾 Начинаем запись в строку {empty_row}")
+                # Определяем лист для записи
+                logger.info(f"📋 Определяем лист для чата {message.chat.id}")
+                worksheet = get_worksheet_for_chat(message.chat.id)
+                worksheet_name = worksheet.title
+                logger.info(f"📄 Выбран лист: '{worksheet_name}'")
             
-            for i, value in enumerate(row):
-                try:
-                    worksheet.update_cell(empty_row, i + 1, value)
-                    logger.debug(f"✏️ Записано в ячейку [{empty_row}, {i + 1}]: {value}")
-                except Exception as cell_error:
-                    error_msg = f"Ошибка записи в ячейку [{empty_row}, {i + 1}]: {str(cell_error)}"
+                # Формируем строку для записи
+                telegram_link = f"https://t.me/c/{str(message.chat.id).lstrip('-').lstrip('100')}/{message.message_id}"
+                row = [
+                    date,
+                    account.strip(),
+                    project.strip(),
+                    '',
+                    direction.strip().title(),
+                    stage.strip(),
+                    category.strip(),
+                    description.strip(),
+                    amount,
+                    supplier.strip(),
+                    telegram_link,
+                    company.strip()
+                ]
+
+                logger.info(f"📝 Подготовлена строка для записи: {row}")
+            
+                # Находим пустую строку
+                empty_row = find_empty_row(worksheet)
+                logger.info(f"🔍 Найдена пустая строка: {empty_row}")
+            
+                if empty_row is None or empty_row > worksheet.row_count:
+                    error_msg = "Не найдена подходящая строка для записи данных"
                     logger.error(f"❌ {error_msg}")
-                    bot.reply_to(message, f"Ошибка записи: {error_msg}")
+                    bot.reply_to(message, f"Ошибка: {error_msg}")
                     return
             
-            # Успешная запись
-            success_msg = "✅ Данные успешно добавлены в Google Sheets!"
-            logger.info(f"🎉 Данные записаны в лист '{worksheet_name}', строка {empty_row}")
-            bot.reply_to(message, success_msg)
+                # Записываем данные
+                logger.info(f"💾 Начинаем запись в строку {empty_row}")
             
-            # Логируем статистику
-            logger.info(f"📊 Обработка завершена успешно. Сумма: {amount}, Поставщик: {supplier}")
+                for i, value in enumerate(row):
+                    try:
+                        worksheet.update_cell(empty_row, i + 1, value)
+                        logger.debug(f"✏️ Записано в ячейку [{empty_row}, {i + 1}]: {value}")
+                    except Exception as cell_error:
+                        error_msg = f"Ошибка записи в ячейку [{empty_row}, {i + 1}]: {str(cell_error)}"
+                        logger.error(f"❌ {error_msg}")
+                        bot.reply_to(message, f"Ошибка записи: {error_msg}")
+                        return
             
-        except Exception as processing_error:
-            error_msg = f"Ошибка обработки данных: {str(processing_error)}"
-            logger.error(f"❌ {error_msg}")
-            logger.error(f"🔍 Traceback: {traceback.format_exc()}")
-            bot.reply_to(message, f"Ошибка: {error_msg}")
-            return
+                # Успешная запись
+                success_msg = "✅ Данные успешно добавлены в реестр оплат!"
+                logger.info(f"🎉 Данные записаны в лист '{worksheet_name}', строка {empty_row}")
+                bot.reply_to(message, success_msg)
+            
+                # Логируем статистику
+                logger.info(f"📊 Обработка завершена успешно. Сумма: {amount}, Поставщик: {supplier}")
+            
+            except Exception as processing_error:
+                error_msg = f"Ошибка обработки данных: {str(processing_error)}"
+                logger.error(f"❌ {error_msg}")
+                logger.error(f"🔍 Traceback: {traceback.format_exc()}")
+                bot.reply_to(message, f"Ошибка: {error_msg}")
+                return
 
     except IndexError as e:
         error_msg = f"Недостаточно полей в сообщении: {str(e)}"
